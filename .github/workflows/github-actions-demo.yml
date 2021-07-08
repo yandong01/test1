@@ -1,17 +1,77 @@
-name: GitHub Actions Demo
-on: [push]
-jobs:
-  Explore-GitHub-Actions:
-    runs-on: ubuntu-latest
+name: 'Accessibility Insights Action'
+description: 'Task to scan for accessibility issues'
+inputs:
+    output-dir:
+        description: 'Folder containing the scan report.'
+        default: '_accessibility-reports'
+        required: true
+    site-dir:
+        description: 'Folder containing website content.'
+        default: ${{ github.workspace }}
+        required: true
+    scan-url-relative-path:
+        description: 'Relative path to directory used to construct base scan url. e.g. / on Ubuntu and // on Windows'
+        required: true
+        default: '/'
+    chrome-path:
+        description: 'Path to Chrome executable.'
+        required: false
+    repo-token:
+        description: 'GitHub API access token.'
+        required: true
+    url:
+        description: 'The hosted URL to scan/crawl for accessibility issues.'
+        required: false
+    max-urls:
+        description: 'Maximum number of pages opened by crawler. The crawl will stop when this limit is reached.'
+        required: false
+        default: '100'
+    discovery-patterns:
+        description: 'List of RegEx patterns to crawl in addition to the provided URL, separated by space.'
+        required: false
+    input-file:
+        description: 'File path that contains list of URLs (each separated by a new line) to scan in addition to URLs discovered from crawling the provided URL.'
+        required: false
+    input-urls:
+        description: 'List of URLs to crawl in addition to URLs discovered from crawling the provided URL, separated by space.'
+        required: false
+    localhost-port:
+        description: 'The preferred local website TCP port to use when scanning local website content.'
+        required: false
+runs:
+    using: 'composite'
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v2
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+        - name: Install npm packages
+          run: |
+              echo 'Installing npm packages...'
+              cd $GITHUB_ACTION_PATH/dist && yarn install --frozen-lockfile --production --ignore-optional --ignore-engines
+              echo 'npm packages successfully installed'
+          shell: bash
+        - name: Setup local docker container
+          run: |
+              if [[ $ACT == true && ! -f '/usr/bin/chromium' ]]; then
+                  apt-get update \
+                  && apt-get -y install chromium chromium-l10n \
+                  && apt-get -y install procps
+                  echo 'Chromium package successfully installed on docker container'
+              fi
+          shell: bash
+        - name: Map action inputs into inner steps
+          run: |
+              echo "INPUT_OUTPUT-DIR=${{ inputs.output-dir }}" >> $GITHUB_ENV
+              echo "INPUT_SITE-DIR=${{ inputs.site-dir }}" >> $GITHUB_ENV
+              echo "INPUT_SCAN-URL-RELATIVE-PATH=${{ inputs.scan-url-relative-path }}" >> $GITHUB_ENV
+              echo "INPUT_CHROME-PATH=${{ inputs.chrome-path }}" >> $GITHUB_ENV
+              echo "INPUT_REPO-TOKEN=${{ inputs.repo-token }}" >> $GITHUB_ENV
+              echo "INPUT_URL=${{ inputs.url }}" >> $GITHUB_ENV
+              echo "INPUT_MAX-URLS=${{ inputs.max-urls }}" >> $GITHUB_ENV
+              echo "INPUT_DISCOVERY-PATTERNS=${{ inputs.discovery-patterns }}" >> $GITHUB_ENV
+              echo "INPUT_INPUT-FILE=${{ inputs.input-file }}" >> $GITHUB_ENV
+              echo "INPUT_INPUT-URLS=${{ inputs.input-urls }}" >> $GITHUB_ENV
+              echo "INPUT_LOCALHOST-PORT=${{ inputs.localhost-port }}" >> $GITHUB_ENV
+          shell: bash
+        - name: Run action
+          run: |
+              echo 'Starting accessibility scanner...'
+              node $GITHUB_ACTION_PATH/dist/index.js
+          shell: bash
