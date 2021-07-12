@@ -23,7 +23,7 @@ jobs:
                   repo-token: ${{ secrets.GITHUB_TOKEN }}
                   # Provide either site-dir or url
                   # site-dir: ${{ github.workspace }}/path-to-built-website
-                  url: https://www.126.com
+                  url: https://www.gov.uk
 
             - name: Upload report artifact
               uses: actions/upload-artifact@v2
